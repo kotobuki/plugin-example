@@ -1,4 +1,5 @@
 
+// iframeで動作する部分
 const html = `
 <canvas id="chart" width="400" height="400"></canvas>
 <script id="chartjs" src="https://cdn.jsdelivr.net/npm/chart.js@3.6.1/dist/chart.min.js"></script>
@@ -11,6 +12,15 @@ const html = `
     if (!property) return Promise.resolve();
 
     //WORKSHOP3
+    return fetch(
+      "https://api.e-stat.go.jp/rest/3.0/app/json/getStatsData?lang=J&statsDataId=0003410379&metaGetFlg=Y&cntGetFlg=N&explanationGetFlg=Y&annotationGetFlg=Y&sectionHeaderFlg=1&replaceSpChars=0&appId=" + property.appId
+    ).then(r => {
+      if (r.ok) return r.json();
+    }).then(r => {
+      if (!r) return;
+      estatdata = r;
+      return r;
+    });
   }
 
   function calcData(data) {
@@ -38,6 +48,11 @@ const html = `
 
   function updateChart() {
     //WORKSHOP4
+    return fetchData().then(d => {
+      if (!d || !chart) return;
+      chart.data = calcData(d);
+      chart.update();
+    });
   }
 
   document.getElementById("chartjs").addEventListener("load", () => {
@@ -61,12 +76,24 @@ const html = `
   });
 
   //Recieve data from Re:Earth
+  // appIDとエリアコードを受け取る
   window.addEventListener("message", e => {
     // WORKSHOP2
+    if (e.source !== parent) return;
+
+    property = e.data;
+    if (property.area) {
+      property.area = ("0" + property.area).slice(-2) + "000";
+    }
+
+    updateChart();
   });
 </script>
 `;
 
+// WASMで実行される
+// Re:Earthのカメラ制御などはこちらで
+// ここでのreearthはwindowオブジェクト
 reearth.ui.show(html);
 reearth.on("update", send);
 send();
@@ -74,4 +101,8 @@ send();
 //Send property data to iframe
 function send() {
   //WORKSHOP1
+  if (reearth.block?.property?.default) {
+    // iframeの中とやり取りする
+    reearth.ui.postMessage(reearth.block.property.default);
+  }
 }
